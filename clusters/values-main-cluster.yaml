@@ -1,0 +1,56 @@
+cluster:
+  kubernetesVersion: 1.15.5
+  region: eu-central-1
+  availabilityZones:
+    - a
+    - b
+    - c
+
+masters:
+  name: master
+  availabilityZones:
+    - a
+  machineType: t2.medium
+
+nodes:
+  - name: nodes
+    machineType: t2.medium
+    minSize: 1
+    maxSize: 3
+    nodeLabels:
+      on-demand: "true"
+    availabilityZones:
+      - a
+      - b
+      - c
+    taints:
+      - "on-demand=true:PreferNoSchedule"
+  - name: spot-nodes
+    machineType: t2.medium
+    minSize: 1
+    maxSize: 3
+    maxPrice: "${KOPS_NODE_MAX_PRICE}"
+    mixedInstancesPolicy: |
+      instances:
+        - t2.medium
+        - c5.large
+        - a1.large
+      onDemandAboveBase: 0
+      onDemandBase: 0
+      spotInstancePools: 3
+    nodeLabels:
+      on-demand: "false"
+    availabilityZones:
+      - a
+      - b
+      - c
+
+bastions:
+  enabled: true
+  machineType: t2.nano
+  minSize: 1
+  maxSize: 3
+  availabilityZones:
+    - a
+    - b
+    - c

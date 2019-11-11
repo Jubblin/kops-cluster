@@ -1,0 +1,10 @@
+version: "2.1"
+
+services:
+  dryrun:
+    volumes:
+      - "~/.ssh:/root/.ssh"
+
+  kubecfg-export:
+    volumes:
+      - "~/.kube:/root/.kube"

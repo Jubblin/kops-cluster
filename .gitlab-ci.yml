@@ -1,0 +1,53 @@
+variables:
+  COMPOSE_FILE: docker-compose.yml:docker-compose.build.yml
+  IMAGE_HUB: "${CI_REGISTRY}/"
+  IMAGE_TAG: "${CI_COMMIT_SHA}"
+  IMAGE_NAME: "${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}"
+
+stages:
+  - build
+
+image: registry.gitlab.com/jakubigla/docker-compose-image
+
+.service_build:
+  stage: build
+  services:
+    - docker:dind
+  before_script:
+    - docker -v
+    - docker-compose -v
+    - docker login -u gitlab-ci-token -p $CI_JOB_TOKEN $CI_REGISTRY
+  script:
+    - docker-compose build --pull $SERVICE_TO_BUILD
+    - docker-compose push $SERVICE_TO_BUILD
+
+    - REF_SLUG_FOR_DOCKER_TAG=$(if [[ "$CI_COMMIT_REF_SLUG" == "master" ]]; then echo "latest"; else echo "$CI_COMMIT_REF_SLUG"; fi)
+    - IMAGE_TAG=$REF_SLUG_FOR_DOCKER_TAG docker-compose build $SERVICE_TO_BUILD
+    - IMAGE_TAG=$REF_SLUG_FOR_DOCKER_TAG docker-compose push $SERVICE_TO_BUILD
+
+    - IMAGE_TAG=p$CI_PIPELINE_ID docker-compose build $SERVICE_TO_BUILD
+    - IMAGE_TAG=p$CI_PIPELINE_ID docker-compose push $SERVICE_TO_BUILD
+  tags:
+    - docker
+
+app:
+  extends: .service_build
+  variables:
+    SERVICE_TO_BUILD: app
+
+compose:
+  stage: build
+  services:
+    - docker:dind
+  variables:
+    COMPOSE_FILE: docker-compose.yml
+  before_script:
+    - docker -v
+    - docker-compose -v
+  script:
+    - docker-compose config > "docker-compose.${CI_COMMIT_SHORT_SHA}.yml"
+  artifacts:
+    paths:
+      - "docker-compose.${CI_COMMIT_SHORT_SHA}.yml"
+  tags:
+    - docker

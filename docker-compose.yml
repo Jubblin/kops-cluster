@@ -1,0 +1,48 @@
+version: "2.1"
+
+services:
+  kops:
+    image: "${K8S_BUILD_TOOLS_IMAGE:-jacops/k8s-build-tools}"
+    entrypoint: ["/usr/local/bin/kops"]
+    environment:
+      AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"
+      AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_PROFILE: "${AWS_PROFILE}"
+      AWS_DEFAULT_REGION: "${AWS_DEFAULT_REGION:-eu-central-1}"
+      KOPS_CLUSTER_TEMPLATE_NAME: "${KOPS_CLUSTER_TEMPLATE_NAME:-main-cluster}"
+      KOPS_CLUSTER_NAME: "${KOPS_CLUSTER_NAME}"
+      KOPS_STATE_STORE: "${KOPS_STATE_STORE}"
+      KOPS_SSH_PUBLIC_KEY_FILE: "${KOPS_SSH_PUBLIC_KEY_FILE}"
+      KOPS_NODE_MAX_PRICE: "${KOPS_NODE_MAX_PRICE:-}"
+    working_dir: /workspace
+    volumes:
+      - .:/workspace
+
+  generate-from-template:
+    extends:
+      service: kops
+    entrypoint: []
+    command: bin/generate-from-template.sh
+
+  dryrun:
+    extends:
+      service: kops
+    entrypoint: []
+    command: bin/dryrun.sh
+
+  update:
+    extends:
+      service: kops
+    entrypoint: []
+    command: bin/update.sh
+
+  destroy:
+    extends:
+      service: kops
+    entrypoint: []
+    command: bin/destroy.sh
+
+  kubecfg-export:
+    extends:
+      service: kops
+    command: export kubecfg

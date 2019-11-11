@@ -1,0 +1,159 @@
+apiVersion: kops.k8s.io/v1alpha2
+kind: Cluster
+metadata:
+  name: {{ .cluster.name }}
+spec:
+  additionalPolicies:
+    node: |-
+      [
+        {
+          "Effect": "Allow",
+          "Action": ["sts:AssumeRole"],
+          "Resource": ["*"]
+        }
+      ]
+  api:
+    loadBalancer:
+      type: Public
+  authorization:
+    rbac: {}
+  channel: stable
+  cloudProvider: aws
+  configBase: {{ .cluster.stateStore }}/{{ .cluster.name }}
+  dnsZone: {{ .cluster.name }}
+  etcdClusters:
+    - cpuRequest: 200m
+      etcdMembers:
+        {{- range .masters.availabilityZones }}
+        - instanceGroup: master-{{ $.cluster.region }}{{ . }}
+          name: {{ . }}
+        {{- end }}
+      memoryRequest: 100Mi
+      name: main
+      version: 3.2.24
+    - cpuRequest: 100m
+      etcdMembers:
+        {{- range .masters.availabilityZones }}
+        - instanceGroup: master-{{ $.cluster.region }}{{ . }}
+          name: {{ . }}
+        {{- end }}
+      memoryRequest: 100Mi
+      name: events
+      version: 3.2.24
+  iam:
+    allowContainerRegistry: true
+    legacy: false
+  kubelet:
+    anonymousAuth: false
+  kubernetesApiAccess:
+    - 0.0.0.0/0
+  kubernetesVersion: {{ .cluster.kubernetesVersion }}
+  masterPublicName: api.k8s.{{ .cluster.name }}
+  networkCIDR: 172.20.0.0/16
+  networking:
+    calico:
+      majorVersion: v3
+  nonMasqueradeCIDR: 100.64.0.0/10
+  sshAccess:
+  - 0.0.0.0/0
+  subnets:
+  {{- range .cluster.availabilityZones }}
+    - name: {{ $.cluster.region }}{{ . }}
+      type: Private
+      zone: {{ $.cluster.region }}{{ . }}
+  {{- end }}
+  {{- range .cluster.availabilityZones }}
+    - name: utility-{{ $.cluster.region }}{{ . }}
+      type: Utility
+      zone: {{ $.cluster.region }}{{ . }}
+  {{- end }}
+  topology:
+    bastion:
+      bastionPublicName: bastion.k8s.{{ .cluster.name }}
+    dns:
+      type: Public
+    masters: private
+    nodes: private
+
+{{- range .masters.availabilityZones }}
+
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  labels:
+    kops.k8s.io/cluster: {{ $.cluster.name }}
+  name: master-{{ $.cluster.region }}{{ . }}
+spec:
+  image: kope.io/k8s-1.15-debian-stretch-amd64-hvm-ebs-2019-09-26
+  machineType: {{ $.masters.machineType }}
+  minSize: 1
+  maxSize: 1
+  nodeLabels:
+    kops.k8s.io/instancegroup: master-{{ $.cluster.region }}{{ . }}
+  role: Master
+  subnets:
+    - {{ $.cluster.region }}{{ . }}
+{{- end }}
+
+{{- range .nodes }}
+
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  labels:
+    kops.k8s.io/cluster: {{ $.cluster.name }}
+  name: {{ .name }}
+spec:
+  image: kope.io/k8s-1.15-debian-stretch-amd64-hvm-ebs-2019-09-26
+  machineType: {{ .machineType }}
+  minSize: {{ .minSize }}
+  maxSize: {{ .maxSize }}
+  {{- if index . "maxPrice" }}
+  maxPrice: {{ .maxPrice | quote }}
+  {{- end }}
+  {{- if index . "mixedInstancesPolicy" }}
+  mixedInstancesPolicy:
+    {{ .mixedInstancesPolicy | indent 4 }}
+  {{- end }}
+  nodeLabels:
+    kops.k8s.io/instancegroup: {{ .name }}
+    {{- range $key, $value := .nodeLabels }}
+    {{ $key }}: {{ $value | quote }}
+    {{- end }}
+  role: Node
+  subnets:
+    {{- range .availabilityZones }}
+    - {{ $.cluster.region }}{{ . }}
+    {{- end }}
+  {{- if index . "taints" }}
+  taints:
+  {{- range .taints }}
+    - {{ . }}
+  {{- end }}
+  {{- end }}
+{{- end }}
+
+---
+
+apiVersion: kops.k8s.io/v1alpha2
+kind: InstanceGroup
+metadata:
+  labels:
+    kops.k8s.io/cluster: {{ .cluster.name }}
+  name: bastions
+spec:
+  image: kope.io/k8s-1.15-debian-stretch-amd64-hvm-ebs-2019-09-26
+  machineType: {{ .bastions.machineType }}
+  minSize: {{ .bastions.minSize }}
+  maxSize: {{ .bastions.maxSize }}
+  nodeLabels:
+    kops.k8s.io/instancegroup: bastions
+  role: Bastion
+  subnets:
+    {{- range .bastions.availabilityZones }}
+    - utility-{{ $.cluster.region }}{{ . }}
+    {{- end }}
