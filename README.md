@@ -12,7 +12,12 @@ Build kubernetes cluster using `kops`.
 * docker-compose
 * make
 
-Run `make setup` to create `.env` and `docker-compose.local.yml` files.
+1. Run `make setup` to create `.env` and `docker-compose.local.yml` files.
+2. Populate `.env` file with 
+  - your AWS credentials
+  - cluser name (should be a dns zone, the kops can operate on)
+  - kops state s3 bucket
+
 
 ### Commands 
 
